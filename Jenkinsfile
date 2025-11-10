@@ -5,7 +5,7 @@ pipeline {
         stage('Build') {
             steps {
                 dir('myapp') {
-                    sh './mvnw clean install'
+                    sh '../mvnw clean install'
                 }
             }
         }
@@ -14,7 +14,7 @@ pipeline {
             steps {
                 dir('myapp') {
                     withSonarQubeEnv('sq1') {
-                        sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar || mvn clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
+                        sh '../mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
                     }
                 }
             }
