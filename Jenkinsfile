@@ -1,25 +1,26 @@
 pipeline {
     agent any
-    tools {
-        maven 'M2_HOME'  // Must match the Maven name in Jenkins global tool config
-    }
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'sonar', 
-                    url: 'https://github.com/rihemakkari/test.git', 
+                git branch: 'sonar',
+                    url: 'https://github.com/rihemakkari/test.git',
                     credentialsId: 'jenkins-example-github-pat'
             }
         }
+
         stage('Build') {
             steps {
-                sh 'mvn clean install'
+                // Use Maven wrapper if present, otherwise fallback to mvn
+                sh './mvnw clean install || mvn clean install'
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sq1') { // Must match your Jenkins SonarQube server name
-                    sh "mvn sonar:sonar -Dsonar.projectKey=myproject -Dsonar.host.url=http://192.168.56.10:9000 -Dsonar.login=squ_01c9a1a1438da5901b8452fb3b4a6b3da0c20c5c"
+                // Make sure the installation name matches your SonarQube server in Jenkins
+                withSonarQubeEnv(installationName: 'sq1') {
+                    sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar || mvn clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
                 }
             }
         }
