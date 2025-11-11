@@ -1,0 +1,3 @@
+gitleaks-report.json
+semgrep-report.json
+trivy-fs-report.json
