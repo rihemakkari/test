@@ -14,5 +14,13 @@ pipeline {
                 }
             }
         }
+      stage("Bandit SAST Scan"){
+    steps {
+        sh 'bandit -r ./backend -o bandit-report.json -f json'
+        // Optionally archive reports
+        archiveArtifacts artifacts: 'bandit-report.json'
+    }
+}
+
     }
 }
