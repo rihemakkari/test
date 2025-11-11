@@ -2,54 +2,74 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'sq1'   // Your SonarQube configuration name in Jenkins
-        PROJECT_NAME = 'test'   // Your project name
+        SONARQUBE = 'sq1' // SonarQube server configured in Jenkins
+        IMAGE_NAME = 'myapp:latest'
+        REPORTS_DIR = "${WORKSPACE}/scan-reports"
+    }
+
+    options {
+        skipDefaultCheckout(true)
+        timestamps()
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
-                echo 'Building the project...'
                 sh './mvnw clean install'
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('SAST - SonarQube Analysis') {
             steps {
-                withSonarQubeEnv(SONARQUBE_ENV) {
-                    echo 'Running SonarQube scan...'
+                withSonarQubeEnv("${SONARQUBE}") {
                     sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
                 }
             }
         }
 
-        stage('SAST - Semgrep') {
+        stage('Dependency Scan - SCA (Trivy)') {
             steps {
-                echo 'Running Semgrep SAST scan...'
-                sh 'semgrep --config=p/ci . --json --output semgrep-report.json || true'
-            }
-        }
-
-        stage('SCA / Trivy') {
-            steps {
-                echo 'Running Trivy SCA / filesystem scan...'
-                sh 'trivy fs --format json --output trivy-fs-report.json . || true'
+                echo "Running Trivy dependency scan..."
+                sh """
+                    mkdir -p ${REPORTS_DIR}
+                    trivy fs --format json --output ${REPORTS_DIR}/trivy-fs-report.json .
+                """
             }
         }
 
         stage('Secrets Scan - Gitleaks') {
             steps {
-                echo 'Running Gitleaks secrets scan...'
-                sh '''
-                    docker run --rm -v $PWD:/scan zricethezav/gitleaks:latest detect \
-                    --source /scan --report-path /scan/gitleaks-report.json || true
-                '''
+                echo "Running Gitleaks secrets scan..."
+                sh """
+                    mkdir -p ${REPORTS_DIR}
+                    docker run --rm -v ${WORKSPACE}:/scan zricethezav/gitleaks:latest detect \
+                        --source /scan --report-path /scan/scan-reports/gitleaks-report.json || true
+                """
+            }
+        }
+
+        stage('Docker Scan') {
+            steps {
+                echo "Building Docker image..."
+                sh "docker build -t ${IMAGE_NAME} ."
+                
+                echo "Scanning Docker image with Trivy..."
+                sh """
+                    mkdir -p ${REPORTS_DIR}
+                    trivy image --format json --output ${REPORTS_DIR}/trivy-image-report.json ${IMAGE_NAME}
+                """
             }
         }
 
         stage('Quality Gate') {
             steps {
-                echo 'Waiting for SonarQube Quality Gate...'
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -59,14 +79,17 @@ pipeline {
 
     post {
         always {
-            echo 'Publishing scan reports...'
-            archiveArtifacts artifacts: 'semgrep-report.json, trivy-fs-report.json, gitleaks-report.json', allowEmptyArchive: true
+            echo "Archiving scan reports..."
+            archiveArtifacts artifacts: 'scan-reports/*.json', allowEmptyArchive: true
         }
+
         failure {
-            echo 'Pipeline failed! Check SonarQube and scan reports for details.'
+            echo "Pipeline failed! Check reports for details."
+            // Optionally add email or Slack notifications here
         }
+
         success {
-            echo 'Pipeline succeeded! All scans completed.'
+            echo "Pipeline succeeded! All scans completed."
         }
     }
 }
