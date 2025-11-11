@@ -4,14 +4,15 @@ pipeline {
         stage('Scan') {
             steps {
                 withSonarQubeEnv('sq1') {
-                    sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
+                    sh "./mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar \
+                        -Dsonar.branch.name=${env.BRANCH_NAME}"
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {   // give some extra time
                     waitForQualityGate abortPipeline: true
                 }
             }
