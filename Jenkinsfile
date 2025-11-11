@@ -57,14 +57,9 @@ pipeline {
 
         stage('Docker Scan') {
             steps {
-                echo "Building Docker image..."
                 sh 'docker build -t myapp:latest ./docker'
-                
-                echo "Scanning Docker image with Trivy..."
-                sh """
-                    mkdir -p ${REPORTS_DIR}
-                    trivy image --format json --output ${REPORTS_DIR}/trivy-image-report.json ${IMAGE_NAME}
-                """
+        echo "Running Trivy scan on Docker image..."
+        sh 'trivy image --format json --output scan-reports/trivy-image-report.json myapp:latest'
             }
         }
 
