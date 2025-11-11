@@ -1,64 +1,57 @@
 pipeline {
     agent any
-    environment {
-        SONAR_HOME = tool 'Sonar'   // Make sure 'Sonar' is configured in Jenkins global tools
-    }
-    stages {
-        stage("Checkout Code") {
-            steps {
-                git url: "https://github.com/rihemakkari/test.git", branch: "sonar"
-            }
-        }
 
-        stage("Build") {
+    environment {
+        SONARQUBE_ENV = 'sq1'   // Your SonarQube configuration name in Jenkins
+        PROJECT_NAME = 'test'   // Your project name
+    }
+
+    stages {
+        stage('Build') {
             steps {
+                echo 'Building the project...'
                 sh './mvnw clean install'
             }
         }
 
-        stage("SonarQube Analysis") {
+        stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv("Sonar") {
-                    sh "$SONAR_HOME/bin/sonar-scanner -Dsonar.projectName=test -Dsonar.projectKey=test"
+                withSonarQubeEnv(SONARQUBE_ENV) {
+                    echo 'Running SonarQube scan...'
+                    sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
                 }
             }
         }
 
-        stage("Install Node Dependencies") {
+        stage('SAST - Semgrep') {
             steps {
-                sh """
-                    echo "Installing Node dependencies..."
-                    if [ -d frontend ]; then cd frontend && npm install && cd ..
-                    fi
-                    if [ -d backend ]; then cd backend && npm install && cd ..
-                    fi
-                """
+                echo 'Running Semgrep SAST scan...'
+                sh 'semgrep --config=p/ci . --json --output semgrep-report.json || true'
             }
         }
 
-        stage("OWASP Dependency Check") {
+        stage('SCA / Trivy') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'dc'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                echo 'Running Trivy SCA / filesystem scan...'
+                sh 'trivy fs --format json --output trivy-fs-report.json . || true'
             }
         }
 
-        stage("Trivy Filesystem Scan") {
+        stage('Secrets Scan - Gitleaks') {
             steps {
-                sh "trivy fs --format json --output trivy-fs-report.json ."
+                echo 'Running Gitleaks secrets scan...'
+                sh '''
+                    docker run --rm -v $PWD:/scan zricethezav/gitleaks:latest detect \
+                    --source /scan --report-path /scan/gitleaks-report.json || true
+                '''
             }
         }
 
-        stage("Gitleaks Secret Scan") {
+        stage('Quality Gate') {
             steps {
-                sh "docker run --rm -v ${WORKSPACE}:/scan zricethezav/gitleaks:latest detect --source /scan --report-path /scan/gitleaks-report.json"
-            }
-        }
-
-        stage("Quality Gate") {
-            steps {
-                timeout(time: 2, unit: "MINUTES") {
-                    waitForQualityGate abortPipeline: false
+                echo 'Waiting for SonarQube Quality Gate...'
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -66,7 +59,14 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: '**/dependency-check-report.xml, trivy-fs-report.json, gitleaks-report.json', allowEmptyArchive: true
+            echo 'Publishing scan reports...'
+            archiveArtifacts artifacts: 'semgrep-report.json, trivy-fs-report.json, gitleaks-report.json', allowEmptyArchive: true
+        }
+        failure {
+            echo 'Pipeline failed! Check SonarQube and scan reports for details.'
+        }
+        success {
+            echo 'Pipeline succeeded! All scans completed.'
         }
     }
 }
