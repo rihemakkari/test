@@ -29,7 +29,7 @@ pipeline {
             steps {
                 echo "SonarQube scan (won't run if build failed)"
                 withSonarQubeEnv("${SONARQUBE}") {
-                    sh './mvnw sonar:sonar || true'
+                    sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
                 }
             }
         }
