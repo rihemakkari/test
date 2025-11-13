@@ -21,8 +21,10 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh './mvnw clean install'
+                dir("${WORKSPACE}") {
+                   sh 'mvnw clean install'
             }
+        }
         }
 
         stage('SAST - SonarQube Analysis') {
