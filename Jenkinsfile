@@ -1,6 +1,6 @@
 pipeline {
     agent any
-
+    tools { maven 'M2_HOME' }
     environment {
         SONARQUBE = 'sq1'
         IMAGE_NAME = 'myapp:latest'
@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/rihemakkari/test.git'
+                git branch: 'sonar', url: 'https://github.com/rihemakkari/test.git'
             }
         }
 
