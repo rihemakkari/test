@@ -8,10 +8,14 @@ repos:
       - id: check-json
       - id: detect-private-key
 
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.0
+  - repo: local
     hooks:
       - id: gitleaks
+        name: "Gitleaks v8 scan for secrets"
+        entry: gitleaks detect --source=. --report-path=.gitleaks-precommit.json --report-format=json --exit-code=1
+        language: system
+        types: [python, javascript, yaml, sh]
+
 
   - repo: https://github.com/psf/black
     rev: 23.12.1
