@@ -29,13 +29,23 @@ pipeline {
         }
 
         stage('Dependency-Check') {
-            steps {
-                script {
-                    sh './tools/dependency-check/bin/dependency-check.sh --project myapp --scan ./pom.xml --format HTML --out target/dependency-check-report.html'
-                }
-                archiveArtifacts artifacts: 'target/dependency-check-report.html', allowEmptyArchive: true
-            }
+    steps {
+        script {
+            sh '''
+            if [ ! -d tools/dependency-check-8.4.2 ]; then
+              mkdir -p tools
+              cd tools
+              wget -q https://github.com/jeremylong/DependencyCheck/releases/download/v8.4.2/dependency-check-8.4.2-release.zip
+              unzip -q dependency-check-8.4.2-release.zip
+              cd ..
+            fi
+            ./tools/dependency-check-8.4.2/bin/dependency-check.sh --project myapp --scan ./pom.xml --format HTML --out target/dependency-check-report.html
+            '''
         }
+        archiveArtifacts artifacts: 'target/dependency-check-report.html', allowEmptyArchive: true
+    }
+}
+
 
         stage('Package') { steps { sh './mvnw package' } }
 
