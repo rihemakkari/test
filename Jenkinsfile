@@ -18,11 +18,8 @@ pipeline {
         }
 
         stage('Build') {
-            steps {
-                dir('test') {
                sh 'bash ./mvnw clean install -DskipTests'
             }
-        }
         }
 
         stage('Test') {
