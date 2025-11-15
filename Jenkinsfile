@@ -29,12 +29,11 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            environment {
-                SONAR_TOKEN = credentials('sq1')
-            }
             steps {
+                withSonarQubeEnv(installationName: 'sq1') {
                 sh './mvnw sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=https://your-sonarqube-url'
             }
+        } 
         }
 
         stage('Package') {
