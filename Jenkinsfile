@@ -20,20 +20,20 @@ pipeline {
         stage('Build') {
             steps {
                  dir('test') {
-                sh './mvn clean install -DskipTests'
+                sh './mvnw clean install -DskipTests'
             }
         }
         }
 
         stage('Test') {
             steps {
-                sh './mvn test'
+                sh './mvnw test'
             }
         }
 
         stage('Package') {
             steps {
-                sh './mvn package'
+                sh './mvnw package'
             }
         }
 
