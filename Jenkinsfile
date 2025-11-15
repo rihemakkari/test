@@ -1,60 +1,54 @@
 pipeline {
     agent any
+    tools { maven 'M2_HOME' }
 
-    tools {
-        maven 'M2_HOME'
-    }
-
-    options {
-        timestamps()
-    }
+    options { timestamps() }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'sonar', url: 'https://github.com/rihemakkari/test.git'
-            }
-        }
+        stage('Checkout') { steps { git branch: 'sonar', url: 'https://github.com/rihemakkari/test.git' } }
 
-        stage('Build') {
-            steps {
-                sh './mvnw clean install -DskipTests'
-            }
-        }
+        stage('Build') { steps { sh './mvnw clean install -DskipTests' } }
 
-        stage('Test') {
+        stage('Test') { steps { sh './mvnw test' } }
+
+        stage('ESLint') {
             steps {
-                sh './mvnw test'
+                script {
+                    sh 'npm install'
+                    sh 'npx eslint src/**/*.js || true'
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv(installationName: 'sq1') {
-                sh './mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
+                    sh './mvnw sonar:sonar -Dsonar.login=$SONAR_TOKEN -Dsonar.java.binaries=target/classes'
+                }
             }
-        } 
         }
 
-        stage('Package') {
+        stage('Dependency-Check') {
             steps {
-                sh './mvnw package'
+                script {
+                    sh './tools/dependency-check/bin/dependency-check.sh --project myapp --scan ./pom.xml --format HTML --out target/dependency-check-report.html'
+                }
+                archiveArtifacts artifacts: 'target/dependency-check-report.html', allowEmptyArchive: true
             }
         }
 
-        stage('Docker Build') {
-            when {
-                expression { fileExists('Dockerfile') }
-            }
+        stage('Package') { steps { sh './mvnw package' } }
+
+        stage('Docker Scan') {
+            when { expression { fileExists('Dockerfile') } }
             steps {
                 sh 'docker build -t myapp:latest .'
+                sh 'trivy image --severity HIGH,CRITICAL myapp:latest || true'
             }
         }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-        }
+        always { archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true }
     }
 }
