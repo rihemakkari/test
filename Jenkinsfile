@@ -13,7 +13,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/rihemakkari/test.git'
+                git branch: 'sonar', url: 'https://github.com/rihemakkari/test.git'
             }
         }
 
