@@ -1,10 +1,8 @@
 pipeline {
     agent any
-    tools { maven 'M2_HOME' }
-    environment {
-        SONARQUBE = 'sq1'
-        IMAGE_NAME = 'myapp:latest'
-        REPORTS_DIR = "${WORKSPACE}/scan-reports"
+
+    tools { 
+        maven 'M2_HOME' 
     }
 
     options {
@@ -12,62 +10,44 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git branch: 'sonar', url: 'https://github.com/rihemakkari/test.git'
+                git branch: 'main', url: 'https://github.com/rihemakkari/test.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo "Building project (Maven wrapper may fail if missing)"
-                sh './mvnw clean install || true'
+                sh 'mvn clean install -DskipTests'
             }
         }
 
-        stage('SAST - SonarQube') {
+        stage('Test') {
             steps {
-                echo "SonarQube scan (won't run if build failed)"
-                withSonarQubeEnv("${SONARQUBE}") {
-                    sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
-                }
+                sh 'mvn test'
             }
         }
 
-        stage('Dependency Scan - Trivy') {
+        stage('Package') {
             steps {
-                echo "Trivy dependency scan"
-                sh """
-                    mkdir -p ${REPORTS_DIR}
-                    trivy fs --format json --output ${REPORTS_DIR}/trivy-fs-report.json . || true
-                """
+                sh 'mvn package'
             }
         }
 
-        stage('Secrets Scan - Gitleaks') {
-            steps {
-                echo "Gitleaks secrets scan (Docker permissions may block this)"
-                sh """
-                    mkdir -p ${REPORTS_DIR}
-                    docker run --rm -v ${WORKSPACE}:/scan zricethezav/gitleaks:latest detect \
-                    --source /scan --report-path /scan/scan-reports/gitleaks-report.json || true
-                """
+        stage('Docker Build') {
+            when {
+                expression { fileExists('Dockerfile') }
             }
-        }
-
-        stage('Docker Scan - Trivy') {
             steps {
-                echo "Docker image scan (requires Docker access)"
-                sh 'docker build -t myapp:latest ./docker || true'
-                sh 'trivy image --format json --output scan-reports/trivy-image-report.json myapp:latest || true'
+                sh 'docker build -t myapp:latest .'
             }
         }
     }
 
     post {
         always {
-            echo "Archiving scan reports..."
-            archiveArtifacts artifacts: 'scan-reports/*.json', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
 }
