@@ -1,0 +1,32 @@
+title = "Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api[_-]?key|apikey)['\"]?\s*[:=]\s*['\"]?([0-9a-zA-Z\-_]{20,})'''
+keywords = ["apikey", "api_key"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+
+[[rules]]
+id = "slack-webhook"
+description = "Slack Webhook"
+regex = '''https://hooks.slack.com/services/[A-Za-z0-9+/]{44,}'''
+keywords = ["hooks.slack.com"]
+
+[allowlist]
+description = "Allowlist"
+paths = [
+  '''\.git/''',
+  '''node_modules/''',
+  '''vendor/''',
+  '''\.pytest_cache/''',
+  '''__pycache__/'''
+]
